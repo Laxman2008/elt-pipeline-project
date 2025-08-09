@@ -1,0 +1,94 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: staging
+      POSTGRES_PASSWORD: stagingpwd
+      POSTGRES_DB: staging_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ./clickhouse-init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "8123:8123"  # HTTP
+      - "9000:9000"  # native
+
+  etl:
+    build: ./etl
+    environment:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DB: staging_db
+      PG_USER: staging
+      PG_PASSWORD: stagingpwd
+      CH_HOST: clickhouse
+      CH_PORT: 9000
+      CH_DB: analytics
+      PII_HMAC_KEY: "please_change_in_prod"
+      INPUT_CSV: /data/green_tripdata_sample.csv
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      - postgres
+      - clickhouse
+
+  airflow-web:
+    image: apache/airflow:2.8.3
+    restart: unless-stopped
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      AIRFLOW__CORE__FERNET_KEY: "fernet-key-please-change"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./etl:/opt/etl
+      - ./data:/data:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - clickhouse
+      - etl
+    command: >
+      bash -cx "airflow db upgrade &&
+               airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin --skip-if-exists &&
+               exec airflow webserver"
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.3
+    restart: unless-stopped
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./etl:/opt/etl
+      - ./data:/data:ro
+    depends_on:
+      - airflow-web
+    command: airflow scheduler
+
+  metabase:
+    image: metabase/metabase:v1.54.1
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - clickhouse
+
+volumes:
+  pg_data:
+  ch_data:
