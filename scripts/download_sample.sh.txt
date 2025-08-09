@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DATA_DIR="./data"
+mkdir -p "$DATA_DIR"
+
+# Public NYC TLC green taxi dataset (month file)
+SRC_URL="https://s3.amazonaws.com/nyc-tlc/trip+data/green_tripdata_2019-01.csv"
+
+OUT="$DATA_DIR/green_tripdata_2019-01.csv"
+SAMPLE="$DATA_DIR/green_tripdata_sample.csv"
+
+echo "Downloading sample dataset (this may be ~20-60MB)..."
+curl -L --progress-bar -o "$OUT" "$SRC_URL"
+
+echo "Creating a smaller sample (~20k rows) for quick runs..."
+# keep header then 20000 lines
+head -n 1 "$OUT" > "$SAMPLE"
+tail -n +2 "$OUT" | head -n 20000 >> "$SAMPLE"
+
+echo "Sample written to $SAMPLE"
