@@ -1,0 +1,16 @@
+defaults:
+  passenger_count: 0
+  trip_distance: 0.0
+  rate_code: "UNKNOWN"
+  store_and_fwd: "N"
+  payment_type: "UNKNOWN"
+  fare_amount: 0.0
+  pickup_datetime: "1970-01-01T00:00:00"
+  dropoff_datetime: "1970-01-01T00:00:00"
+
+anonymization:
+  hmac_key_env: PII_HMAC_KEY
+  deterministic_ids: true
+  mask_emails: false
+  mask_phone: false
+  date_shift_max_days: 0

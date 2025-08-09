@@ -1,0 +1,6 @@
+pandas==2.2.2
+pyyaml
+psycopg2-binary
+clickhouse-driver
+python-dateutil
+sqlalchemy
